@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+    <title>Spirit Stone Card List</title>
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+    <style type="text/css">
+	
+td {
+  width: 200px;
+}
+circle {
+  stroke-width: 1.5px;
+}
+.Warrior {
+  fill: #C42B27;
+  stroke: #760300;
+}
+.Mage {
+  fill: #3F2787;
+  stroke: #1B0851;
+}
+.Archer {
+  fill: #1F9A27;
+  stroke: #005D06;
+}
+.Thief {
+  fill: #C4AA27;
+  stroke: #766300;
+}
+.link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+.left {
+	border: 1px solid black;
+	float: left;
+}
+    </style>
+  </head>
+  <body>
+	<div id="graph" class="left"></div>
+	<div class="left">
+		<div id="names"><select><option value="0">--Select--</option></select></div>
+		<div id="info">
+			<table><tr><td rowspan=11><img id="img" src="" alt="IMG"></td>
+						<th colspan=2 id="name">Name</th></tr>
+					<tr><th>Class:</th><td id="class">---</td></tr>
+					<tr><th>Rarity:</th><td id="rarity">---</td></tr>
+					<tr><th>Stars:</th><td id="stars">#</td></tr>
+					<tr><th>Max Lvl:</th><td id="lvl">#</td></tr>
+					<tr><th>Cost:</th><td id="cost">#</td></tr>
+					<tr><th>ATK:</th><td id="atk">#</td></tr>
+					<tr><th>HP:</th><td id="hp">#</td></tr>
+					<tr><th>Skill:</th><td id="skill">---</td></tr>
+					<tr><th>BattleSkill:</th><td id="bskill">---</td></tr>
+					<tr><th>Story:</th><td id="story">---</td></tr>
+			</table>
+		</div>
+	</div>
+  
+    <script type="text/javascript">
+var w = 1200,
+    h = 1000,
+    nodes=[],links=[],
+    color = d3.scale.category20();
+
+var force = d3.layout.force()
+   .linkStrength(0)
+   .charge(-80)
+   .gravity(0.3)
+   .size([w, h])
+
+var svg = d3.select("#graph").append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
+var select = d3.select("select");
+ select.on("change", function() { card(this.value); });
+ 
+d3.json("https://spreadsheets.google.com/feeds/list/16DTQO92zcAAYVHBLJQeW2Ec4dGxVFTr-axJn9xUgEPc/4/public/values?alt=json",function(json) {
+//console.log(json);
+	var names = [] ;
+	json.feed.entry.forEach(function(d){
+		if (d.gsx$cardname.$t!="") {
+			var obj={};
+			/* get all properties */
+			Object.getOwnPropertyNames(d).forEach(function(p) {
+				var key = p.match(/gsx.(.*)/);
+				if(key) {obj[key[1]]=d[p].$t;}
+			});
+			/* modify name */
+			obj.name=obj.cardname.match(/-[0-9,s, ]*(.*)$/)[1];
+			/* store node */
+			nodes[+obj.cid]=obj;
+			/* links */
+			if( obj.rarity != "N/A") { /* some card not implemented */
+				links.push({"source": +obj.inv1a, "target": +obj.cid});
+				if (obj.inv1a != obj.inv1b) { /* one link in case of A+A=B */
+					links.push({"source": +obj.inv1b, "target": +obj.cid});
+				}
+			}
+		}
+	});
+//console.log(nodes);	
+//console.log(links);	
+	
+	/*add root - fixed in center*/
+	nodes[0]={ name:"Root",cid:0,star:0};
+	nodes[0].fixed = true;
+	nodes[0].x = w / 2;
+	nodes[0].y = h / 2;
+
+	force
+		.nodes(nodes)
+		.links(links)
+		.start() //start the simulation
+		
+	//sort cards for select form
+	var sorted = nodes.slice();
+	sorted.sort(function(a, b) { return d3.ascending(a.name, b.name); } );
+	sorted.forEach( function(d) {
+		select.append("option")
+			.attr("value",d.cid)
+			.text(d.name);
+	});
+
+	/* draw */
+	var link = svg.selectAll(".link")
+		.data(links)
+		.enter().append("line")
+		.attr("class", "link")
+	
+	var node = svg.selectAll(".node")
+		.data(nodes)
+		.enter().append("circle")
+		.attr("class", function(d){ return d.class; })
+		.attr("r", 5)
+		.on("click", function(d) { card(d.index); })
+		.call(force.drag);		
+	
+	node.append("title")
+		  .text(function(d) { return d.name; });
+
+	 
+	force.on("tick", function(e) {
+		// Push different nodes in different directions for clustering based on class.
+		var k = 6 * e.alpha;
+		nodes.forEach(function(o, i) {
+			if(o.class=="Warrior") { o.k=1;}
+			else if(o.class=="Mage") { o.k=2;}
+			else if(o.class=="Archer") { o.k=3;}
+			else if(o.class=="Thief") { o.k=4;}
+			o.y += (o.k & 1 ? k : -k) * o.star;
+			o.x += (o.k & 2 ? k : -k) * o.star;			
+		  });
+		  
+		//redraw
+		node.attr("cx", function(d) { return d.x; })
+			.attr("cy", function(d) { return d.y; });
+	 
+		link.attr("x1", function(d) { return d.source.x; })
+			.attr("y1", function(d) { return d.source.y; })
+			.attr("x2", function(d) { return d.target.x; })
+			.attr("y2", function(d) { return d.target.y; });
+	});
+
+});/*ens json nodes*/
+
+
+
+/*display card info*/
+function card(idx) {
+	if(idx!=0) {
+		var d = nodes[idx];
+
+		d3.select("#img")
+			.attr("src","http://www.spiritstones.info/cards/"+ (d.cid < 10 ? "00"+d.cid : (d.cid < 100 ? "0"+d.cid : ""+d.cid)) +".png")
+			.attr("alt",d.name)
+			.attr("width",312)
+			.attr("height",412);
+		d3.select("#name").text(d.name);
+		d3.select("#cost").text(d.cost);
+		d3.select("#rarity").text(d.rarity);
+		d3.select("#stars").text(d.star);
+		d3.select("#class").text(d.class);
+		d3.select("#lvl").text(d.maxlvl);
+		d3.select("#atk").text(d.atk+"(max: "+d.maxatk+")");
+		d3.select("#hp").text(d.hp+"(max: "+d.maxhp+")");
+		d3.select("#skill").text(d.skill+"( "+d.skillturn+" rounds)");
+		d3.select("#bskill").text(d.battleskill+": "+d.battleskilldescription);
+		d3.select("#story").text(d.story);
+	}
+	highlight(d);
+}
+
+/*color graph according to selection */
+function highlight(d) {
+	//reset
+	d3.selectAll("circle")
+		.style("stroke-width","1.5px");
+	d3.selectAll("line")
+		.style("stroke","#ccc")
+		.style("stroke-width","1.5px")
+		.style("stroke-dasharray","");
+		
+	// clicked node
+	d3.selectAll("circle")
+		.filter(function(s) {return s.index == d.index;})
+		.style("stroke-width","5px");
+
+	// linked	
+	ancestrors(d);
+	descendants(d);
+}
+
+function ancestrors(d) {
+	d3.selectAll("line") //lines
+		.filter(function(l) {return l.target.index == d.index;})
+		.style("stroke","black")
+		.style("stroke-width","3px")
+		.style("stroke-dasharray","10,10")
+		.each( function(l) {
+			d3.selectAll("circle") //nodes
+				.filter(function(n) {return n.index == l.source.index;})
+				.style("stroke-width","10px")
+				.style("opacity",".8")
+				.each( function(n) { ancestrors(n); });
+		});
+}
+
+function descendants(d) {
+	d3.selectAll("line") //lines
+		.filter(function(l) {return l.source.index == d.index;})
+		.style("stroke","black")
+		.style("stroke","black")
+		.style("stroke-width","3px")
+		.each( function(l) {
+			d3.selectAll("circle") //nodes
+				.filter(function(n) {return n.index == l.target.index;})
+				.style("stroke-width","10px")
+				.each( function(n) { descendants(n); });
+		});
+}
+    </script>
+  </body>
+</html>
