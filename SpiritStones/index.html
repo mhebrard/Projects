@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
-    <title>Spirit Stone Evolutions</title>
+    <title>Spirit Stone Card List</title>
 	<script src="http://d3js.org/d3.v3.min.js"></script>
     <style type="text/css">
 	
@@ -67,10 +67,9 @@ var w = 1200,
     color = d3.scale.category20();
 
 var force = d3.layout.force()
-   .linkDistance(20)
-   .linkStrength(1)
+   .linkStrength(0)
    .charge(-80)
-   .gravity(0.2) /* 0.2 keep node in the window*/
+   .gravity(0.3)
    .size([w, h])
 
 var svg = d3.select("#graph").append("svg:svg")
@@ -81,7 +80,7 @@ var select = d3.select("select");
  select.on("change", function() { card(this.value); });
  
 d3.json("https://spreadsheets.google.com/feeds/list/16DTQO92zcAAYVHBLJQeW2Ec4dGxVFTr-axJn9xUgEPc/4/public/values?alt=json",function(json) {
-console.log(json);
+//console.log(json);
 	var names = [] ;
 	json.feed.entry.forEach(function(d){
 		if (d.gsx$cardname.$t!="") {
@@ -104,8 +103,8 @@ console.log(json);
 			}
 		}
 	});
-console.log(nodes);	
-console.log(links);	
+//console.log(nodes);	
+//console.log(links);	
 	
 	/*add root - fixed in center*/
 	nodes[0]={ name:"Root",cid:0,star:0};
@@ -146,6 +145,18 @@ console.log(links);
 
 	 
 	force.on("tick", function(e) {
+		// Push different nodes in different directions for clustering based on class.
+		var k = 6 * e.alpha;
+		nodes.forEach(function(o, i) {
+			if(o.class=="Warrior") { o.k=1;}
+			else if(o.class=="Mage") { o.k=2;}
+			else if(o.class=="Archer") { o.k=3;}
+			else if(o.class=="Thief") { o.k=4;}
+			o.y += (o.k & 1 ? k : -k) * o.star;
+			o.x += (o.k & 2 ? k : -k) * o.star;			
+		  });
+		  
+		//redraw
 		node.attr("cx", function(d) { return d.x; })
 			.attr("cy", function(d) { return d.y; });
 	 
@@ -191,7 +202,8 @@ function highlight(d) {
 		.style("stroke-width","1.5px");
 	d3.selectAll("line")
 		.style("stroke","#ccc")
-		.style("stroke-width","1.5px");
+		.style("stroke-width","1.5px")
+		.style("stroke-dasharray","");
 		
 	// clicked node
 	d3.selectAll("circle")
