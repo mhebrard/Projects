@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
-    <title>Spirit Stone Evolutions</title>
+    <title>Spirit Stone Card List</title>
 	<script src="http://d3js.org/d3.v3.min.js"></script>
     <style type="text/css">
 	
@@ -41,18 +41,37 @@ circle {
   </head>
   <body>
 	<div id="graph" class="left"></div>
+	<div class="left">
+		<div id="names"><select><option value="0">--Select--</option></select></div>
+		<div id="info">
+			<table><tr><td rowspan=11><img id="img" src="" alt="IMG"></td>
+						<th colspan=2 id="name">Name</th></tr>
+					<tr><th>Class:</th><td id="class">---</td></tr>
+					<tr><th>Rarity:</th><td id="rarity">---</td></tr>
+					<tr><th>Stars:</th><td id="stars">#</td></tr>
+					<tr><th>Max Lvl:</th><td id="lvl">#</td></tr>
+					<tr><th>Cost:</th><td id="cost">#</td></tr>
+					<tr><th>ATK:</th><td id="atk">#</td></tr>
+					<tr><th>HP:</th><td id="hp">#</td></tr>
+					<tr><th>Skill:</th><td id="skill">---</td></tr>
+					<tr><th>BattleSkill:</th><td id="bskill">---</td></tr>
+					<tr><th>Story:</th><td id="story">---</td></tr>
+			</table>
+		</div>
+	</div>
+	<div class="left"><input type="button" value="From 1* to 5*" onclick="f1to5()"/></div>
   
     <script type="text/javascript">
+var mode = "init";
 var w = 1200,
     h = 1000,
     nodes=[],links=[],
     color = d3.scale.category20();
 
 var force = d3.layout.force()
-   .charge(-80)
    .linkStrength(0)
+   .charge(-80)
    .gravity(0.3)
- //  .linkDistance(20)
    .size([w, h])
 
 var svg = d3.select("#graph").append("svg:svg")
@@ -63,7 +82,7 @@ var select = d3.select("select");
  select.on("change", function() { card(this.value); });
  
 d3.json("https://spreadsheets.google.com/feeds/list/16DTQO92zcAAYVHBLJQeW2Ec4dGxVFTr-axJn9xUgEPc/4/public/values?alt=json",function(json) {
-console.log(json);
+//console.log(json);
 	var names = [] ;
 	json.feed.entry.forEach(function(d){
 		if (d.gsx$cardname.$t!="") {
@@ -86,8 +105,8 @@ console.log(json);
 			}
 		}
 	});
-console.log(nodes);	
-console.log(links);	
+//console.log(nodes);	
+//console.log(links);	
 	
 	/*add root - fixed in center*/
 	nodes[0]={ name:"Root",cid:0,star:0};
@@ -124,23 +143,24 @@ console.log(links);
 		.call(force.drag);		
 	
 	node.append("title")
-		  .text(function(d) { return d.name+d.star; });
+		  .text(function(d) { return d.name; });
 
 	 
 	force.on("tick", function(e) {
-	// Push different nodes in different directions for clustering.
-	  var k = 6 * e.alpha;
-	  nodes.forEach(function(o, i) {
-		if(o.class=="Warrior") { o.k=1;}
-		if(o.class=="Mage") { o.k=2;}
-		if(o.class=="Archer") { o.k=3;}
-		if(o.class=="Thief") { o.k=4;}
-		o.y += (o.k & 1 ? k : -k) * o.star;
-		o.x += (o.k & 2 ? k : -k) * o.star;
-		console.log(o.class);
-		
-	  });
-	
+		// Push different nodes in different directions for clustering based on class.
+		var k = 6 * e.alpha;
+		if (mode=="init") {
+			nodes.forEach(function(o, i) {
+				if(o.class=="Warrior") { o.k=1;}
+				else if(o.class=="Mage") { o.k=2;}
+				else if(o.class=="Archer") { o.k=3;}
+				else if(o.class=="Thief") { o.k=4;}
+				o.y += (o.k & 1 ? k : -k) * o.star;
+				o.x += (o.k & 2 ? k : -k) * o.star;			
+			  });
+		}
+		  
+		//redraw
 		node.attr("cx", function(d) { return d.x; })
 			.attr("cy", function(d) { return d.y; });
 	 
@@ -148,7 +168,6 @@ console.log(links);
 			.attr("y1", function(d) { return d.source.y; })
 			.attr("x2", function(d) { return d.target.x; })
 			.attr("y2", function(d) { return d.target.y; });
-
 	});
 
 });/*ens json nodes*/
@@ -227,6 +246,45 @@ function descendants(d) {
 				.style("stroke-width","10px")
 				.each( function(n) { descendants(n); });
 		});
+}
+
+function f1to5() {
+	//Hide not needed card and links
+	d3.selectAll("circle").filter(function(d) {return !d.grade;}).remove();
+	d3.selectAll("line").filter(function(d) {return !d.source.grade || !d.target.grade;}).remove();
+	
+	force.stop();
+	nodes.forEach(function(o, i) {
+		o.y = h-50*o.grade;
+		o.x = 50*o.suite;
+		
+	});
+	//redraw
+		d3.selectAll("circle")
+			.attr("cx", function(d) { return d.x; })
+			.attr("cy", function(d) { return d.y; })
+			.attr("r", function(d) { return d.have ? 5*(+d.have+1): 5; });
+	 
+		d3.selectAll("line")
+			.attr("x1", function(d) { return d.source.x; })
+			.attr("y1", function(d) { return d.source.y; })
+			.attr("x2", function(d) { return d.target.x; })
+			.attr("y2", function(d) { return d.target.y; });
+			
+		/* draw */
+		var labels = svg.selectAll(".label")
+		.data(nodes)
+		.enter().append("text")
+		.attr("class", ".label")
+		.attr("x",function(d) { return d.x; })
+		.attr("y",function(d) { return d.y+4; })
+		.text(function(d) { return d.have; })
+		.style("text-anchor","middle")
+		.attr("fill","white")
+		
+		
+
+	
 }
     </script>
   </body>
